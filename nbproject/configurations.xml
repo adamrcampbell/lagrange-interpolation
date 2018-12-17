@@ -39,6 +39,11 @@
         <cTool>
           <standard>10</standard>
         </cTool>
+        <linkerTool>
+          <linkerLibItems>
+            <linkerOptionItem>-lm</linkerOptionItem>
+          </linkerLibItems>
+        </linkerTool>
       </compileType>
       <item path="interpolation.c" ex="false" tool="0" flavor2="0">
       </item>
