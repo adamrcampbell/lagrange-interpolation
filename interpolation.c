@@ -6,38 +6,41 @@
 
 int main(int argc, char** argv) {
 
-    int resSize = 8;
-    int texSize = 8;
+    int resSize = 32;
+    int texSize = 16;
     
-    DoubleComplex *resolution = calloc(resSize * resSize, sizeof(DoubleComplex));
-    DoubleComplex *texture = calloc(texSize * texSize, sizeof(DoubleComplex));
+    DoubleComplex *resolution = calloc(resSize, sizeof(DoubleComplex));
+    DoubleComplex *texture = calloc(texSize, sizeof(DoubleComplex));
     
     double width = (double) resSize;
-    double rowIndex, colIndex, rowShift, colShift, rowTaper, colTaper = 0.0;
-    int matrixIndex = 0;
+    double taper, shift = 0.0;
     
-    for(int r = 0; r < resSize; r++)
+    for(int i = 0; i < resSize; i++)
     {
-        rowIndex = (double) r;
-        rowShift = fabs(calcSphrShift(rowIndex, width)); // plus/minus 1.0 to offset for odd/even spheroidals
-        rowTaper = calcSphrSample(rowShift) * (1.0 - rowShift * rowShift);
-        
-        for(int c = 0; c < resSize; c++)
-        {
-            colIndex = (double) c;
-            colShift = fabs(calcSphrShift(colIndex, width));
-            colTaper = calcSphrSample(colShift) * (1.0 - colShift * colShift);
-            matrixIndex = r * resSize + c;
-            
-            resolution[matrixIndex] = (DoubleComplex) {.real = rowTaper * colTaper, .imaginary = 0.0};
-        }
+        // printf("%f\n", calcSphrShift(i, width));
+        shift = fabs(calcSphrShift(i, width)); // plus/minus 1.0 to offset for odd/even spheroidals
+        taper = calcSphrSample(shift) * (1.0 - shift * shift);
+        resolution[i] = (DoubleComplex) {.real = taper, .imaginary = 0.0};
     }
     
+    printf("Original Curve: ");
     printMatrix(resolution, resSize);
     
     interpolateKernel(resolution, texture, resSize, texSize);
-    printf("\n\n");
+    
+    printf("Interpol Curve: ");
     printMatrix(texture, texSize);
+    
+    
+//    DoubleComplex n0 = (DoubleComplex) {.real = 0.0, .imaginary = 0.0};
+//    DoubleComplex n1 = (DoubleComplex) {.real = 0.035890, .imaginary = 0.0};
+//    DoubleComplex n2 = (DoubleComplex) {.real = 0.270799, .imaginary = 0.0};
+//    DoubleComplex n3 = (DoubleComplex) {.real = 0.734366, .imaginary = 0.0};
+//    double s0 = 1.285714;
+//    double s1 = 1.0;
+//    double s2 = 0.714286;
+//    double s3 = 0.428571;
+//    printf("%f\n", interpolateCubicSample(n3, n2, n1, n0, s3, s2, s1, s0, calcDistance(7), 1.0).real);
     
     return (EXIT_SUCCESS);
 }
@@ -45,70 +48,57 @@ int main(int argc, char** argv) {
 void interpolateKernel(DoubleComplex *source, DoubleComplex *destination, 
     int sourceSupport, int destinationSupport)
 {
-    double rowShift, colShift = 0.0;
-    double shift = calcDistance(sourceSupport-2);
-    int rowIndex, colIndex, destIndex = 0;
+    double sourceShift = calcDistance(sourceSupport-1);
     
-    DoubleComplex n[16];
-    double s[16];
+    DoubleComplex n[4];
+    double s[4];
+    int y[4];
     DoubleComplex p[4];
     
-    for(int r = 0; r < destinationSupport; r++)
+    for(int i = 0; i < destinationSupport; i++)
     {
-        rowShift = calcInterpShift((double) r, (double) destinationSupport);
-        rowIndex = calcRelativeIndex(rowShift, sourceSupport-2)+1;
+        //double shift = calcInterpShift((double) i, (double) destinationSupport-1);
+        double shift = calcSphrShift((double) i, (double) destinationSupport-1);
+        // printf("%d: %f\n", i, shift);
+        int j = calcRelativeIndex(shift, (double) sourceSupport);
+
+        getBicubicNeighbours(shift, n, s, y, sourceSupport, source);
         
-        for(int c = 0; c < destinationSupport; c++)
-        {
-            colShift = calcInterpShift((double) c, (double) destinationSupport);
-            colIndex = calcRelativeIndex(colShift, sourceSupport-2)+1;
-            
-            getBicubicNeighbours(rowIndex, colIndex, n, s, sourceSupport, source);
-            
-            // Interpolate new samples
-            for(int i = 0; i < 4; i++)
-            {
-                p[i] = interpolateCubicSample(n[i * 4], n[i * 4 + 1], n[i * 4 + 2], n[i * 4 + 3],
-                        s[i * 4], s[i * 4 + 1], s[i * 4 + 2], s[i * 4 + 3], shift, colShift);
-            }
-            
-            // Interpolate final sample
-            destIndex = r * destinationSupport + c;
-            destination[destIndex] = interpolateCubicSample(p[0], p[1], p[2], p[3], 
-                    calcResolutionShift(rowIndex-1, sourceSupport),
-                    calcResolutionShift(rowIndex, sourceSupport),
-                    calcResolutionShift(rowIndex+1, sourceSupport),
-                    calcResolutionShift(rowIndex+2, sourceSupport),
-                    shift, rowShift);
-        }        
+        printf("[%d:%f] [%d:%f] [%d:%f] [%d:%f] [%d:%f]\n", y[0], s[0], y[1], s[1], j, shift, y[2], s[2], y[3], s[3]);
+        
+        // printf("%d: %f %f %f %f\n", i, n[0].real, n[1].real, n[2].real, n[3].real);
+        
+        //printf("%d %d %d %d %d\n", s[0], s[1], j, s[2], s[3]);DoubleComplex n0 = (DoubleComplex) {.real = 0.0, .imaginary = 0.0};
+        
+        destination[i] = interpolateCubicSample(n[0], n[1], n[2], n[3],
+                    s[0], s[1], s[2], s[3], sourceShift, shift);
     }
 }
 
-void getBicubicNeighbours(int rowIndex, int colIndex, DoubleComplex *n, double *s,
+void getBicubicNeighbours(double shift, DoubleComplex *n, double *s, int *y,
         int sourceSupport, DoubleComplex *source)
 {
+    int j = calcRelativeIndex(shift, (double) sourceSupport);
+    
     int nIndex = 0;
     
-    for(int r = rowIndex-1; r < rowIndex+3; r++)
+    int start = (shift < 0.0) ? j-1 : j-2;
+    int end = (shift < 0.0) ? j+3 : j+2;
+    
+    for(int i = start; i < end; i++)
     {
-        for(int c = colIndex-1; c < colIndex+3; c++)
-        {
-            // Calculate each neighbours shift
-            s[nIndex] = calcResolutionShift(c, sourceSupport);
-            
-            // printf("%f ", s[nIndex]);
-            
-            // Neighbour falls out of bounds
-            if(r < 1 || r >= sourceSupport || c < 1 || c >= sourceSupport)
-                n[nIndex] = (DoubleComplex) {.real = 0.0, .imaginary = 0.0};
-            // Neighbour exists
-            else
-                n[nIndex] = source[r * sourceSupport + c];
-            
-            nIndex++;
-        }
+        // Calculate each neighbours shift
+        s[nIndex] = (shift < 0.0) ? calcSphrShift(i-1, sourceSupport-1) : calcSphrShift(i, sourceSupport-1) ;
+        y[nIndex] = i;
         
-        // printf("\n");
+        // Neighbour falls out of bounds
+        if(i < 1 || i >= sourceSupport)
+            n[nIndex] = (DoubleComplex) {.real = 0.0, .imaginary = 0.0};
+        // Neighbour exists
+        else
+            n[nIndex] = source[i];
+
+        nIndex++;
     }
         
 }
@@ -143,12 +133,17 @@ double calcSphrShift(double index, double width)
 
 double calcInterpShift(double index, double width)
 {
-    return -1.0 + ((2.0 * index + 1.0) / width);
+    return -1.0 + ((2.0 * index) / width);
 }
+
+//double calcInterpShift(double index, double width)
+//{
+//    return -1.0 + ((2.0 * index + 1.0) / width);
+//}
 
 double calcResolutionShift(double index, double width)
 {
-    return -1.0 + ((index-1.0) * (2.0 / (width-2.0)));
+    return -1.0 + ((index) * (2.0 / (width-2.0)));
 }
 
 double calcSphrSample(double x)
@@ -197,7 +192,7 @@ DoubleComplex complexAdd(DoubleComplex x, DoubleComplex y)
     return (DoubleComplex) {.real = x.real + y.real, .imaginary=x.imaginary + y.imaginary};
 }
 
-int calcRelativeIndex(float x, int width)
+int calcRelativeIndex(double x, double width)
 {
     int offset = (x < 0.0) ? 1 : 2;
     return ((int) floor(((x+1.0f)/2.0f) * (width-offset)))+1;
@@ -205,16 +200,9 @@ int calcRelativeIndex(float x, int width)
 
 void printMatrix(DoubleComplex *matrix, int support)
 {
-    int index = 0;
-    
-    for(int r = 0; r < support; r++)
+    for(int i = 0; i < support; i++)
     {
-        for(int c = 0; c < support; c++)
-        {
-            index = r * support + c;
-            printf("%.3f,", matrix[index].real);
-        }
-        
-        printf("\n");
+        printf("%.3f, ", matrix[i].real);
     }
+    printf("\n");
 }
