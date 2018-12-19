@@ -6,7 +6,9 @@
 
 int main(int argc, char** argv) {
 
-    int resSize = 32;
+    // Note: only functional on even sized resolution and texture sizes, for now
+    
+    int resSize = 16;
     int texSize = 16;
     
     DoubleComplex *resolution = calloc(resSize, sizeof(DoubleComplex));
@@ -82,6 +84,7 @@ void getBicubicNeighbours(double shift, DoubleComplex *n, double *s, int *y,
     
     int nIndex = 0;
     
+    // define neighbour boundaries
     int start = (shift < 0.0) ? j-1 : j-2;
     int end = (shift < 0.0) ? j+3 : j+2;
     
