@@ -13,24 +13,33 @@ extern "C" {
     } DoubleComplex;
 
     double calcDistance(double width);
+    
     double calcSphrShift(double index, double width);
+    
     double calcInterpShift(double index, double width);
+    
     double calcSphrSample(double x);
+    
     double calcResolutionShift(double index, double width);
+    
     int calcRelativeIndex(double x, double width);
+    
     void interpolateKernel(DoubleComplex *source, DoubleComplex *destination, 
-            int resolutionSupport, int textureSupport);
-    void getBicubicNeighbours(double shift, DoubleComplex *n, double *s, int *y,
-            int sourceSupport, DoubleComplex *source);
+        int resolutionSupport, int textureSupport);
+    
+    void getBicubicNeighbours(double rowShift, double colShift, DoubleComplex *n,
+        double *rs, double *cs, int sourceSupport, DoubleComplex *source);
+    
     DoubleComplex interpolateCubicSample(DoubleComplex z0, DoubleComplex z1, 
-            DoubleComplex z2, DoubleComplex z3, double x0, double x1, double x2,
-            double x3, double h, double x);
+        DoubleComplex z2, DoubleComplex z3, double x0, double x1, double x2,
+        double x3, double h, double x);
+    
     void printMatrix(DoubleComplex *matrix, int support);
     
     DoubleComplex complexScale(DoubleComplex z, double scalar);
+    
     DoubleComplex complexAdd(DoubleComplex z0, DoubleComplex z1);
     
-
 #ifdef __cplusplus
 }
 #endif
